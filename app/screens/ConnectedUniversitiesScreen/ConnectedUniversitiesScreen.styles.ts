@@ -20,7 +20,8 @@ export default createDynamicStyleSheet(({ theme }) => ({
     borderRadius: theme.borderRadius,
     backgroundColor: '#123B39',
     borderWidth: 1,
-    borderColor: '#287A68'
+    borderColor: '#287A68',
+    marginBottom: 14
   },
   cardHeader: {
     flexDirection: 'row',
@@ -60,7 +61,49 @@ export default createDynamicStyleSheet(({ theme }) => ({
   link: {
     color: '#8BDCE8',
     fontFamily: theme.fontFamily.regular,
-    fontSize: theme.fontSize.regular,
-    textDecorationLine: 'underline'
+    fontSize: theme.fontSize.regular
+  },
+  input: {
+    marginTop: 8,
+    marginBottom: 8,
+    backgroundColor: theme.color.backgroundPrimary
+  },
+  hint: {
+    color: theme.color.textSecondary,
+    fontFamily: theme.fontFamily.regular,
+    fontSize: theme.fontSize.small,
+    lineHeight: 20,
+    marginBottom: 14
+  },
+  qrPanel: {
+    alignItems: 'center',
+    padding: 16,
+    marginTop: 14,
+    marginBottom: 8,
+    borderRadius: theme.borderRadius,
+    backgroundColor: '#FFFFFF'
+  },
+  qrHint: {
+    color: '#31505A',
+    fontFamily: theme.fontFamily.regular,
+    fontSize: theme.fontSize.small,
+    lineHeight: 20,
+    marginBottom: 14,
+    textAlign: 'center'
+  },
+  qrCode: {
+    padding: 8,
+    backgroundColor: '#FFFFFF'
+  },
+  addButton: {
+    marginTop: 8
+  },
+  footer: {
+    color: theme.color.textSecondary,
+    fontFamily: theme.fontFamily.regular,
+    fontSize: theme.fontSize.small,
+    lineHeight: 20,
+    marginTop: 6,
+    marginBottom: 20
   }
 }))

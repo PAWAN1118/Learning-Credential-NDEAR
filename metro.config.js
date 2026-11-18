@@ -3,6 +3,9 @@ const { getDefaultConfig } = require('expo/metro-config')
 
 const config = getDefaultConfig(__dirname)
 
+// Keep Metro's worker pool small enough for low-memory Windows build hosts.
+config.maxWorkers = 2
+
 // Add support for Realm and other native modules
 config.resolver.sourceExts.push('cjs')
 config.resolver.assetExts.push('db')

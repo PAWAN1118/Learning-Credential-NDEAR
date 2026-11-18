@@ -1,11 +1,17 @@
 import DocumentPicker from 'react-native-document-picker'
 import * as RNFS from 'react-native-fs'
-import { Platform } from 'react-native'
+import { NativeModules, Platform } from 'react-native'
 import base64 from 'react-native-base64'
 
 import { ProfileRecord } from '../model'
 import { CredentialImportReport } from '../types/credential'
 import { parseWalletContents } from './parseWallet'
+import {
+  credentialTextFromPng,
+  learningCertificateUrlPrintedInText,
+  sapCertificateCredentialFromPdfText,
+  textFromPdfBytes
+} from './decode'
 
 // Type augmentation for global object
 declare global {
@@ -62,45 +68,37 @@ export async function readFile(uri: string): Promise<string> {
     // Read as base64 first
     const base64Data = await RNFS.readFile(path, 'base64')
 
-    if (isPngFile(base64Data)) {
-      // Decode base64 to UTF-8 string for embedded JSON extraction
-      const arrayBuffer = base64ToArrayBuffer(base64Data)
-      const decodedString = new TextDecoder('utf-8').decode(arrayBuffer)
+    const bytes = new Uint8Array(base64ToArrayBuffer(base64Data))
+    const pdfText = textFromPdfBytes(bytes)
+    const isPdf =
+      bytes[0] === 0x25 &&
+      bytes[1] === 0x50 &&
+      bytes[2] === 0x44 &&
+      bytes[3] === 0x46
+    if (isPdf) {
+      const sapCredential = sapCertificateCredentialFromPdfText(pdfText)
+      if (sapCredential) return JSON.stringify(sapCredential, null, 2)
+      if (learningCertificateUrlPrintedInText(pdfText)) return pdfText
 
-      // Search for the OpenBadge JSON inside PNG
-      const keyword = 'openbadgecredential'
-      const keywordIndex = decodedString.indexOf(keyword)
-
-      if (keywordIndex !== -1) {
-        const startIndex = keywordIndex + keyword.length
-        const objectStart = decodedString.indexOf('{', startIndex)
-
-        if (objectStart !== -1) {
-          let braceCount = 0
-          let objectEnd = objectStart
-
-          while (objectEnd < decodedString.length) {
-            if (decodedString[objectEnd] === '{') braceCount++
-            else if (decodedString[objectEnd] === '}') braceCount--
-
-            if (braceCount === 0) break
-            objectEnd++
-          }
-
-          const objectString = decodedString.slice(objectStart, objectEnd + 1)
-          try {
-            const parsedObject = JSON.parse(objectString)
-
-            return JSON.stringify(parsedObject, null, 2)
-          } catch (error) {
-            return ''
-          }
-        } else {
-          return ''
-        }
-      } else {
-        return ''
+      // Scanned PDFs can contain noise in their text layer. OCR the page when
+      // no usable certificate URL or ID was found in that layer.
+      if (
+        Platform.OS === 'android' &&
+        NativeModules.UdemyPdfOcr?.readFirstPage
+      ) {
+        const recognizedText: string =
+          await NativeModules.UdemyPdfOcr.readFirstPage(path)
+        if (recognizedText?.trim()) return recognizedText
       }
+      return pdfText
+    }
+
+    if (pdfText) return pdfText
+
+    if (isPngFile(base64Data)) {
+      const arrayBuffer = base64ToArrayBuffer(base64Data)
+      const objectString = credentialTextFromPng(new Uint8Array(arrayBuffer))
+      return JSON.stringify(JSON.parse(objectString), null, 2)
     } else {
       const fileContent = await RNFS.readFile(path, 'utf8')
       return fileContent

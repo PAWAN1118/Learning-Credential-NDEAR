@@ -36,10 +36,25 @@ export default function VerificationStatusCard({
     credential.type.some((t: string) => supportedCredentialTypes.includes(t))
 
   const details =
-    verifyPayload.result.log?.reduce<Record<string, boolean>>((acc, log) => {
-      acc[log.id] = log.valid
-      return acc
-    }, {}) || {}
+    verifyPayload.result.log?.reduce<Record<string, boolean | undefined>>(
+      (acc, log) => {
+        acc[log.id] = log.valid
+        return acc
+      },
+      {}
+    ) || {}
+  const credlyReason = verifyPayload.result.log.find(
+    (log) =>
+      log.id === LogId.ValidSignature &&
+      log.error?.name === 'credly_hosted_assertion' &&
+      typeof log.error?.message === 'string'
+  )?.error?.message as string | undefined
+  const udemyReason = verifyPayload.result.log.find(
+    (log) =>
+      log.error?.name === 'udemy_public_certificate' &&
+      typeof log.error?.message === 'string'
+  )?.error?.message as string | undefined
+  const isUdemy = !!udemyReason
 
   const lastChecked = moment(verifyPayload.result.timestamp).format(
     'MMM D, YYYY h:mmA z'
@@ -72,22 +87,80 @@ export default function VerificationStatusCard({
     valid: boolean | undefined
   ): { message: string; status: 'positive' | 'warning' | 'negative' } {
     switch (id) {
-      case LogId.ValidSignature:
-        return {
-          message: valid ? 'has a valid signature' : 'has an invalid signature',
-          status: valid ? 'positive' : 'negative'
+      case LogId.ValidSignature: {
+        if (isUdemy) {
+          return {
+            message:
+              'Udemy completion certificates are checked against the public issuer page, not a cryptographic signature',
+            status: 'warning'
+          }
         }
-      case LogId.IssuerDIDResolves:
+        const isCredlyHosted = verifyPayload.result.log.some(
+          (log) =>
+            log.id === LogId.ValidSignature &&
+            log.error?.name === 'credly_hosted_assertion'
+        )
         return {
-          message: valid
-            ? 'has been issued by a known issuer'
-            : "isn't in a known issuer registry",
+          message: isCredlyHosted
+            ? valid
+              ? 'has a current Credly-hosted Open Badges record (holder name came from the PDF)'
+              : 'could not be confirmed by Credly'
+            : valid === undefined
+              ? 'signature status could not be determined'
+              : valid
+                ? 'has a valid signature'
+                : verifyPayload.result.log.some(
+                      (log) =>
+                        log.id === LogId.ValidSignature &&
+                        log.error?.name === 'no_proof'
+                    )
+                  ? 'is missing a digital signature'
+                  : 'has an invalid signature',
+          status:
+            (valid === undefined || !valid) && isCredlyHosted
+              ? 'warning'
+              : valid === undefined && !isCredlyHosted
+                ? 'warning'
+                : valid
+                  ? 'positive'
+                  : 'negative'
+        }
+      }
+      case LogId.IssuerDIDResolves: {
+        if (isUdemy) {
+          return {
+            message: valid
+              ? 'certificate ID and course title match Udemy’s public record'
+              : 'could not be confirmed by Udemy’s public record',
+            status: valid ? 'positive' : 'warning'
+          }
+        }
+        const isCredlyHosted = verifyPayload.result.log.some(
+          (log) =>
+            log.id === LogId.IssuerDIDResolves &&
+            log.error?.name === 'credly_hosted_assertion'
+        )
+        return {
+          message: isCredlyHosted
+            ? valid
+              ? 'has been confirmed as SAP by Credly'
+              : 'could not be confirmed as SAP by Credly'
+            : valid
+              ? 'has been issued by a known issuer'
+              : "isn't in a known issuer registry",
           status: valid ? 'positive' : 'warning'
         }
+      }
       case LogId.RevocationStatus:
         return {
-          message: valid ? 'has not been revoked' : 'has been revoked',
-          status: valid ? 'positive' : 'negative'
+          message:
+            valid === undefined
+              ? 'revocation status could not be checked'
+              : valid
+                ? 'has not been revoked'
+                : 'has been revoked',
+          status:
+            valid === undefined ? 'warning' : valid ? 'positive' : 'negative'
         }
       case LogId.SuspensionStatus:
         return {
@@ -96,8 +169,13 @@ export default function VerificationStatusCard({
         }
       case LogId.Expiration:
         return {
-          message: valid ? 'has not expired' : 'has expired',
-          status: valid ? 'positive' : 'warning'
+          message:
+            valid === undefined
+              ? 'expiration status could not be determined'
+              : valid
+                ? 'has not expired'
+                : 'has expired',
+          status: valid === undefined || !valid ? 'warning' : 'positive'
         }
       case LogId.SupportedFormat:
         return {
@@ -170,11 +248,14 @@ export default function VerificationStatusCard({
       <Text style={styles.subTitle}>This credential:</Text>
       <StatusRow {...getStatusProps(LogId.SupportedFormat, hasKnownType)} />
       <StatusRow
-        {...getStatusProps(
-          LogId.ValidSignature,
-          details[LogId.ValidSignature] ?? false
-        )}
+        {...getStatusProps(LogId.ValidSignature, details[LogId.ValidSignature])}
       />
+      {credlyReason ? (
+        <Text style={styles.bodyText}>Credly check: {credlyReason}</Text>
+      ) : null}
+      {udemyReason ? (
+        <Text style={styles.bodyText}>Udemy check: {udemyReason}</Text>
+      ) : null}
       <StatusRow
         {...getStatusProps(
           LogId.IssuerDIDResolves,
@@ -184,7 +265,7 @@ export default function VerificationStatusCard({
       <StatusRow
         {...getStatusProps(
           LogId.RevocationStatus,
-          details[LogId.RevocationStatus] ?? true
+          details[LogId.RevocationStatus]
         )}
       />
       {/* <StatusRow {...getStatusProps(LogId.SuspensionStatus, details[LogId.SuspensionStatus])} /> */}
@@ -193,7 +274,10 @@ export default function VerificationStatusCard({
           {...getStatusProps(LogId.Expiration, details[LogId.Expiration])}
         />
       ) : (
-        <StatusRow message="has no expiration date set" status="positive" />
+        <StatusRow
+          message="expiration status could not be determined"
+          status="warning"
+        />
       )}
 
       <Text style={styles.lastChecked}>Last Checked: {lastChecked}</Text>

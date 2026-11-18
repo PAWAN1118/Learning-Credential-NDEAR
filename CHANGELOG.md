@@ -1,5 +1,52 @@
 # learner-credential-wallet Changelog
 
+## 2.2.28 - build 125
+
+- Detect SAP certificate text before Udemy certificate IDs so SAP imports keep the SAP/Credly verification path.
+
+## 2.2.22 - build 119
+
+- Accept Credly Open Badges assertions with hosted verification aliases, type arrays, and embedded badge/issuer objects.
+- Report the exact unsupported verification type when Credly returns a different assertion shape.
+
+## 2.2.21 - build 118
+
+- Match Credly issue and expiry dates by calendar day and normalize certificate titles.
+- Distinguish unavailable Credly records from known failed checks and show the failure reason.
+- Enable issuer links after Credly confirms the issuer.
+
+## 2.2.20 - build 117
+
+- Treat unavailable Credly revocation checks as unknown instead of revoked.
+- Report expiration using the certificate date and show unknown when unavailable.
+- Show failed Credly confirmation as a warning.
+
+## 2.2.19 - build 116
+
+- Resolve SAP PDF imports against Credly's hosted Open Badges assertion API, then verify the issuer, badge title, dates, expiry, and revocation status against Credly's live record.
+- Explain Credly hosted verification accurately in the credential verification details.
+
+## 2.2.18 - build 115
+
+- Extract selectable text from Flate-compressed SAP certificate PDFs on-device, and import the name, certification, issue/expiry dates, description, and Credly evidence link without depending on Credly availability.
+
+## 2.2.17 - build 114
+
+- Add import support for public Udemy certificate pages and SAP Credly badge pages. Imported page metadata is retained with its source link and remains unverified unless the issuer supplies a signed credential.
+- Recognize Udemy/Credly share URLs embedded as readable text in certificate files; scanned PDFs and images still require OCR support.
+
+## 2.2.16 - build 113
+
+### Added
+
+- Resolve CertForge Open Badges credentials by printed ID or credential URL
+- Prompt for the printed ID when a scanned CertForge QR opens only the homepage
+- Verify CertForge status through its public verification endpoint before import
+
+### Fixed
+
+- Keep credential lookup usable when QR/file input needs a CertForge ID
+
 ## 2.2.10 - build 107
 
 ### Added
@@ -19,12 +66,13 @@
 - Create link on onboarding screen during password creation
 
 ### Changed
+
 - LCW: Change linter library, update rules
 
 ### Fixed
+
 - Links disabled for issuers that are in registry
 - Remove excess logs related to light/dark theme
-
 
 ## 2.2.9 - build 103
 
@@ -44,7 +92,6 @@
 - Cannot go back from credential preview from managed profiles
 - Fix legacy peer deps
 - Issuing is buggy using deeplink and camera but ok from app qr scan
-
 
 ## 2.2.8 - build 102
 

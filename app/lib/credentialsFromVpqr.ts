@@ -7,7 +7,9 @@ import { securityLoader } from '@digitalcredentials/security-document-loader'
 
 import { credentialsFromPresentation } from './credentialsFromPresentation'
 
-const documentLoader = securityLoader({ fetchRemoteContexts: true }).build()
+// Use bundled, trusted contexts so a scanned presentation can be decoded
+// without reaching out to the network. Unknown contexts fail closed.
+const documentLoader = securityLoader().build()
 
 export async function credentialsFromVpqr(
   text: string

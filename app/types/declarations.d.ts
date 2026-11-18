@@ -1,5 +1,6 @@
 declare module '@digitalcredentials/did-io'
 declare module '@digitalcredentials/did-method-key'
+declare module '@digitalcredentials/ed25519-multikey'
 declare module '@digitalcredentials/vc'
 declare module '@digitalcredentials/verifier-core'
 declare module '@digitalcredentials/vpqr'
@@ -23,6 +24,9 @@ declare module 'react-native-filereader'
 declare module 'react-native-receive-sharing-intent'
 declare module 'validator'
 declare module '@microsoft/msrcrypto'
+declare module 'pako' {
+  export function inflate(input: Uint8Array): Uint8Array
+}
 
 declare module 'react-native-base64' {
   export function decode(input: string): string

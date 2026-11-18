@@ -55,16 +55,13 @@ function CredentialItem({
     if (logs.length === 0 && isVerified === null) return 'not_verified'
     if (isLoading && logs.length > 0) return 'verifying'
 
-    const details = logs.reduce<Record<string, boolean>>((acc, log) => {
-      acc[log.id] = log.valid
-      return acc
-    }, {})
-
-    ;['valid_signature', 'expiration', 'registered_issuer'].forEach((key) => {
-      if (!(key in details)) {
-        details[key] = false
-      }
-    })
+    const details = logs.reduce<Record<string, boolean | undefined>>(
+      (acc, log) => {
+        acc[log.id] = log.valid
+        return acc
+      },
+      {}
+    )
 
     const hasFailure = ['valid_signature', 'revocation_status'].some(
       (key) => details[key] === false
@@ -76,6 +73,7 @@ function CredentialItem({
 
     if (hasFailure) return 'not_verified'
     if (hasWarning) return 'warning'
+    if (isVerified !== true) return 'warning'
 
     return 'verified'
   }, [verifyCredential])

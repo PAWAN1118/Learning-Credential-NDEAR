@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useContext } from 'react'
+import { useContext, useEffect, useMemo, useState } from 'react'
 import { useSelector } from 'react-redux'
 import {
   Rubik_400Regular,
@@ -8,7 +8,6 @@ import {
 } from '@expo-google-fonts/rubik'
 import { RobotoMono_400Regular } from '@expo-google-fonts/roboto-mono'
 
-import { DidRegistryContext, loadKnownDidRegistries } from '../init/registries'
 import {
   lock,
   pollWalletState,
@@ -17,10 +16,10 @@ import {
 import { getAllRecords } from '../store'
 import { useAppDispatch } from './useAppDispatch'
 import { initializeLogger } from '../init/logger'
+import { DidRegistryContext, loadKnownDidRegistries } from '../init/registries'
 
 export function useAppLoading(): boolean {
   const [loading, setLoading] = useState(true)
-
   const didRegistries = useContext(DidRegistryContext)
 
   const primaryTasks = [useFontsLoaded(), useWalletStateInitialized()]
@@ -35,11 +34,12 @@ export function useAppLoading(): boolean {
   }, [primaryTasksFinished])
 
   async function runSecondaryTasks() {
-    await Promise.all([
-      initializeLogger(),
-      loadKnownDidRegistries({ client: didRegistries })
-    ])
-
+    await initializeLogger()
+    // Registry lookups enrich issuer details when the network is available.
+    // Keep them out of the startup gate so QR/file imports remain usable offline.
+    void loadKnownDidRegistries({ client: didRegistries }).catch((error) => {
+      console.warn('Could not load issuer registries:', error)
+    })
     setLoading(false)
   }
 

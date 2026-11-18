@@ -34,7 +34,12 @@ const BIOMETRICS_STATUS = 'biometrics_status'
 const ENABLED = 'enabled'
 const DISABLED = 'disabled'
 
-const PBKDF2_ITERATIONS = 10000
+// Keep the original cost for wallets created by older app versions. New
+// wallets record their KDF version and use OWASP's PBKDF2-HMAC-SHA512 work
+// factor without invalidating existing Realm encryption keys.
+const LEGACY_PBKDF2_ITERATIONS = 10000
+const CURRENT_PBKDF2_ITERATIONS = 220000
+const CURRENT_SALT_VERSION = 'v2'
 const PBKDF2_SALT_PATH = `${RNFS.DocumentDirectoryPath}/edu-wallet-salt`
 
 class DatabaseAccess {
@@ -114,10 +119,11 @@ class DatabaseAccess {
   public static async unlock(passphrase: string): Promise<void> {
     if (await this.isUnlocked()) return
 
+    const salt = await DatabaseAccess.salt()
     const key = pbkdf2Sync(
       passphrase,
-      await DatabaseAccess.salt(),
-      PBKDF2_ITERATIONS,
+      salt.value,
+      salt.iterations,
       32,
       'SHA-512'
     )
@@ -195,11 +201,16 @@ class DatabaseAccess {
       await DatabaseAccess.lock()
     }
 
-    const decoder = new encoding.TextDecoder()
-    const rawSalt = await generateSecureRandom(64)
-    const salt: string = decoder.decode(rawSalt)
+    const rawSalt = await generateSecureRandom(32)
+    const salt = Array.from(rawSalt, (byte) =>
+      byte.toString(16).padStart(2, '0')
+    ).join('')
 
-    await RNFS.writeFile(PBKDF2_SALT_PATH, salt, 'utf8')
+    await RNFS.writeFile(
+      PBKDF2_SALT_PATH,
+      `${CURRENT_SALT_VERSION}$${CURRENT_PBKDF2_ITERATIONS}$${salt}`,
+      'utf8'
+    )
 
     // The first call to unlock will create/encrypt the Realm with the pass
     await DatabaseAccess.unlock(passphrase)
@@ -222,8 +233,15 @@ class DatabaseAccess {
     return encodedBytes.slice(0, 64)
   }
 
-  private static async salt(): Promise<string> {
-    return RNFS.readFile(PBKDF2_SALT_PATH, 'utf8')
+  private static async salt(): Promise<{ value: string; iterations: number }> {
+    const stored = await RNFS.readFile(PBKDF2_SALT_PATH, 'utf8')
+    const current = /^v2\$(\d+)\$([a-f0-9]{64})$/i.exec(stored)
+    if (current) {
+      return { value: current[2], iterations: Number(current[1]) }
+    }
+    // A plain salt is the format used by older wallets. Preserve its exact
+    // bytes and work factor so existing encrypted Realm databases still open.
+    return { value: stored, iterations: LEGACY_PBKDF2_ITERATIONS }
   }
 
   private static async config(): Promise<Realm.Configuration> {

@@ -61,30 +61,34 @@ export async function verificationResultFor({
   forceFresh?: boolean
 }): Promise<VerificationResult> {
   const cachedRecordId = String(rawCredentialRecord._id)
-
-  if (!forceFresh) {
-    const cachedResult = (await lruCache.memoize({
-      key: cachedRecordId,
-      fn: () => {
-        return verifyCredential(rawCredentialRecord.credential)
+  const verify = async (): Promise<VerificationResult> => {
+    try {
+      const response = await verifyCredential(rawCredentialRecord.credential)
+      const rootLog = response.log ?? []
+      return {
+        verified: response.verified,
+        // The verification library may return checks at the top level or
+        // inside each credential result. Always return the same shape to UI.
+        log:
+          rootLog.length > 0
+            ? rootLog
+            : (response.results?.flatMap((item) => item.log ?? []) ?? []),
+        timestamp: Date.now()
       }
-    })) as VerificationResult
-    return cachedResult
+    } catch (err) {
+      return {
+        verified: false,
+        log: [],
+        timestamp: Date.now(),
+        error: err as Error
+      }
+    }
   }
 
-  let response, error
-  try {
-    response = await verifyCredential(rawCredentialRecord.credential)
-  } catch (err) {
-    error = err as Error
-  }
+  if (forceFresh) return verify()
 
-  const result: VerificationResult = {
-    verified: response?.verified ?? false,
-    log: response?.results ? response.results[0].log : [],
-    timestamp: Date.now(),
-    error
-  }
-
-  return result
+  return (await lruCache.memoize({
+    key: cachedRecordId,
+    fn: verify
+  })) as VerificationResult
 }

@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import * as SecureStore from 'expo-secure-store'
 import { IVerifiableCredential } from '@digitalcredentials/ssi'
 
 import store from '../store'
@@ -7,23 +8,24 @@ import {
   selectRawCredentialRecords
 } from '../store/slices/credential'
 import { selectRawProfileRecords } from '../store/slices/profile'
+import { verifyCredential } from './validate'
 
 const CERTIFICATE_API = 'https://certificate-3g1x.onrender.com/api/certificates'
 
 export const STUDENT_PROFILE_KEY = 'ndear_student_profile'
-export const CACHED_CERTIFICATES_KEY = 'ndear_cached_certificates'
 
 export type StudentProfile = {
   fullName: string
   dateOfBirth: string
 }
 
-export type FetchedCertificate = {
+export type FetchedCertificate = IVerifiableCredential & {
   '@context': string[]
   id: string
   type: string[]
   issuer: { id: string; name: string }
-  issuanceDate: string
+  issuanceDate?: string
+  validFrom?: string
   credentialSubject: {
     id: string
     name: string
@@ -35,15 +37,83 @@ export type FetchedCertificate = {
       duration: string
     }
   }
-  _raw: {
-    certificateId: string
-    recipientName: string
-    dateOfBirth: string
-    courseName: string
-    organizationName: string
-    issueDate: string
-    duration: string
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/** Checks the untrusted service response shape without changing signed fields. */
+export function isFetchedCertificate(
+  value: unknown
+): value is FetchedCertificate {
+  if (!isRecord(value)) return false
+  const issuer = value.issuer
+  const subject = value.credentialSubject
+  return (
+    typeof value.id === 'string' &&
+    Array.isArray(value['@context']) &&
+    Array.isArray(value.type) &&
+    value.type.includes('VerifiableCredential') &&
+    (typeof issuer === 'string' ||
+      (isRecord(issuer) && typeof issuer.id === 'string')) &&
+    (typeof value.issuanceDate === 'string' ||
+      typeof value.validFrom === 'string') &&
+    isRecord(subject)
+  )
+}
+
+function isImportableCredential(
+  value: unknown
+): value is IVerifiableCredential {
+  return (
+    isRecord(value) &&
+    Array.isArray(value.type) &&
+    value.type.includes('VerifiableCredential')
+  )
+}
+
+/** Verify an imported item before it can be persisted in the wallet. */
+export async function importCertificateIfVerified(
+  value: unknown
+): Promise<boolean> {
+  if (!isImportableCredential(value)) {
+    throw new Error('The imported item is not a verifiable credential.')
   }
+
+  const profile = selectRawProfileRecords(store.getState())[0]
+  if (!profile) {
+    throw new Error(
+      'No active wallet profile is available for certificate import.'
+    )
+  }
+
+  const existing = selectRawCredentialRecords(store.getState()).some(
+    (record) => record.credential.id === value.id
+  )
+  if (existing) return false
+
+  const verification = await verifyCredential(value)
+  if (!verification.verified) {
+    const reasons = (verification.log ?? [])
+      .filter((entry) => !entry.valid)
+      .map((entry) => `${entry.id}: ${entry.error?.message ?? 'check failed'}`)
+    throw new Error(
+      reasons.length > 0
+        ? `Certificate was not stored because verification failed (${reasons.join('; ')}).`
+        : 'Certificate was not stored because the verifier could not validate its proof, issuer, or status.'
+    )
+  }
+
+  await store
+    .dispatch(
+      addCredential({
+        credential: value,
+        profileRecordId: profile._id
+      })
+    )
+    .unwrap()
+  return true
 }
 
 /**
@@ -52,14 +122,23 @@ export type FetchedCertificate = {
 export async function saveStudentProfile(
   profile: StudentProfile
 ): Promise<void> {
-  await AsyncStorage.setItem(STUDENT_PROFILE_KEY, JSON.stringify(profile))
+  await SecureStore.setItemAsync(STUDENT_PROFILE_KEY, JSON.stringify(profile))
 }
 
 /**
  * Retrieves the student's saved profile from AsyncStorage.
  */
 export async function getStudentProfile(): Promise<StudentProfile | null> {
-  const raw = await AsyncStorage.getItem(STUDENT_PROFILE_KEY)
+  let raw = await SecureStore.getItemAsync(STUDENT_PROFILE_KEY)
+  if (!raw) {
+    // Migrate profiles written by older app versions to OS-protected storage.
+    const legacyRaw = await AsyncStorage.getItem(STUDENT_PROFILE_KEY)
+    if (legacyRaw) {
+      await SecureStore.setItemAsync(STUDENT_PROFILE_KEY, legacyRaw)
+      await AsyncStorage.removeItem(STUDENT_PROFILE_KEY)
+      raw = legacyRaw
+    }
+  }
   if (!raw) return null
   try {
     return JSON.parse(raw) as StudentProfile
@@ -89,62 +168,19 @@ export async function fetchCertificatesFromStudio(
       }
     )
     if (!response.ok) return []
-    const data = await response.json()
-    if (!data.found || !Array.isArray(data.certificates)) return []
-    return data.certificates as FetchedCertificate[]
+    const data: unknown = await response.json()
+    if (
+      !isRecord(data) ||
+      data.found !== true ||
+      !Array.isArray(data.certificates)
+    ) {
+      return []
+    }
+    return data.certificates.filter(isFetchedCertificate)
   } catch (err) {
     console.warn('[studentCertificates] Fetch failed:', err)
     return []
   }
-}
-
-/**
- * Saves fetched certificates to AsyncStorage for offline access.
- */
-export async function cacheCertificates(
-  certificates: FetchedCertificate[]
-): Promise<void> {
-  await AsyncStorage.setItem(
-    CACHED_CERTIFICATES_KEY,
-    JSON.stringify(certificates)
-  )
-}
-
-/**
- * Returns locally cached certificates (offline fallback).
- */
-export async function getCachedCertificates(): Promise<FetchedCertificate[]> {
-  const raw = await AsyncStorage.getItem(CACHED_CERTIFICATES_KEY)
-  if (!raw) return []
-  try {
-    return JSON.parse(raw) as FetchedCertificate[]
-  } catch {
-    return []
-  }
-}
-
-/**
- * Full sync: fetch from the backend and cache locally.
- * Returns the list of certificates (from network or local cache on failure).
- */
-export async function syncStudentCertificates(
-  fullName: string,
-  dateOfBirth: string
-): Promise<FetchedCertificate[]> {
-  const online = await fetchCertificatesFromStudio(fullName, dateOfBirth)
-  if (online.length > 0) {
-    await cacheCertificates(online)
-    console.log(
-      `[studentCertificates] Synced ${online.length} certificate(s) for ${fullName}`
-    )
-    return online
-  }
-  // Fallback to local cache
-  const cached = await getCachedCertificates()
-  console.log(
-    `[studentCertificates] Using ${cached.length} cached certificate(s)`
-  )
-  return cached
 }
 
 /**
@@ -157,8 +193,6 @@ export async function syncAndImportStudentCertificates(
 ): Promise<number> {
   const certificates = await fetchCertificatesFromStudio(fullName, dateOfBirth)
   if (certificates.length === 0) return 0
-
-  await cacheCertificates(certificates)
 
   const profile = selectRawProfileRecords(store.getState())[0]
   if (!profile) {
@@ -175,16 +209,18 @@ export async function syncAndImportStudentCertificates(
   let imported = 0
   for (const certificate of certificates) {
     if (existingIds.has(certificate.id)) continue
-    await store
-      .dispatch(
-        addCredential({
-          credential: certificate as IVerifiableCredential,
-          profileRecordId: profile._id
-        })
+    try {
+      if (await importCertificateIfVerified(certificate)) {
+        existingIds.add(certificate.id)
+        imported += 1
+      }
+    } catch (error) {
+      console.warn(
+        '[studentCertificates] Skipping unverified certificate',
+        certificate.id,
+        error
       )
-      .unwrap()
-    existingIds.add(certificate.id)
-    imported += 1
+    }
   }
 
   return imported

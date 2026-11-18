@@ -24,10 +24,7 @@ import AccessibleView from '../../components/AccessibleView/AccessibleView'
 import PasswordForm from '../../components/PasswordForm/PasswordForm'
 import WalletArtwork from '../../components/WalletArtwork/WalletArtwork'
 import { useAccessibilityFocus } from '../../hooks'
-import {
-  saveStudentProfile,
-  syncAndImportStudentCertificates
-} from '../../lib/studentCertificates'
+import { saveStudentProfile } from '../../lib/studentCertificates'
 
 import dynamicStyleSheet from './SetupNavigation.styles'
 import type {
@@ -378,23 +375,10 @@ function CreateStep({ route }: CreateStepProps) {
     // 2. Initialize wallet (create encrypted database)
     await dispatch(initialize({ passphrase: password, enableBiometrics }))
 
-    // 3. Auto-fetch certificates in the background
-    setSyncStatus('Syncing your certificates…')
-    try {
-      const imported = await syncAndImportStudentCertificates(
-        fullName,
-        dateOfBirth
-      )
-      if (imported > 0) {
-        setSyncStatus(`✓ Added ${imported} certificate(s) to your wallet!`)
-      } else {
-        setSyncStatus('No new certificates found yet.')
-      }
-    } catch {
-      setSyncStatus(
-        'Could not sync certificates. You can retry from the home screen.'
-      )
-    }
+    // The encrypted wallet and built-in demo credentials work offline.
+    setSyncStatus(
+      'Your encrypted wallet is ready. Demo credentials work offline.'
+    )
 
     await dispatch(pollWalletState())
   }

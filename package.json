@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "learner-credential-wallet",
-  "version": "2.2.10",
+  "version": "2.2.28",
   "scripts": {
     "start": "npx expo start --dev-client -c",
     "android": "expo run:android",
@@ -22,7 +22,8 @@
     "prebuild:android": "EXPO_NO_TELEMETRY=1 EXPO_NO_GIT_STATUS=1 npx expo prebuild --clean -p android",
     "test:ui:ios": "maestro test .maestro/lock-unlock-wallet.yaml --env APP_ID=edu.mit.eduwallet",
     "test:ui:android": "maestro test .maestro/lock-unlock-wallet.yaml --env APP_ID=app.lcw",
-    "test:ui": "maestro test .maestro/lock-unlock-wallet.yaml --config .maestro/config.yaml"
+    "test:ui": "maestro test .maestro/lock-unlock-wallet.yaml --config .maestro/config.yaml",
+    "demo:issuer": "node issuer-demo/server.mjs"
   },
   "expo": {
     "autolinking": {
@@ -59,6 +60,7 @@
     "@digitalcredentials/data-integrity": "^2.5.1-beta.1",
     "@digitalcredentials/dcc-context": "^1.0.0",
     "@digitalcredentials/did-method-key": "^3.0.0",
+    "@digitalcredentials/ed25519-multikey": "^1.4.0",
     "@digitalcredentials/ed25519-signature-2020": "^6.0.0",
     "@digitalcredentials/ed25519-verification-key-2020": "^5.0.0",
     "@digitalcredentials/eddsa-rdfc-2022-cryptosuite": "^1.2.1-beta.6",
@@ -68,6 +70,7 @@
     "@digitalcredentials/security-document-loader": "^8.0.0",
     "@digitalcredentials/ssi": "^5.4.2",
     "@digitalcredentials/vc": "^10.0.2",
+    "@digitalcredentials/vc-bitstring-status-list": "^1.0.0",
     "@digitalcredentials/verifier-core": "^1.0.0-beta.6",
     "@digitalcredentials/vpqr": "^2.2.1",
     "@digitalcredentials/x25519-key-agreement-key-2020": "^3.0.0",
@@ -102,8 +105,10 @@
     "json-canonicalize": "^1.0.4",
     "jsonpath-plus": "^10.3.0",
     "moment": "^2.29.1",
+    "pako": "^2.1.0",
     "postinstall-postinstall": "^2.1.0",
     "query-string": "^7.1.0",
+    "qrcode": "^1.5.4",
     "react": "19.0.0",
     "react-async-hook": "^4.0.0",
     "react-dom": "19.0.0",

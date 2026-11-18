@@ -1,10 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { IVerifiableCredential } from '@digitalcredentials/ssi'
-
-import store from '../store'
-import { addCredential } from '../store/slices/credential'
-import { selectRawCredentialRecords } from '../store/slices/credential'
-import { selectRawProfileRecords } from '../store/slices/profile'
+import { Alert } from 'react-native'
+import {
+  importCertificateIfVerified,
+  isFetchedCertificate
+} from './studentCertificates'
+import { credentialsFrom } from './decode'
 
 const API = 'https://certificate-3g1x.onrender.com/api/certificates'
 const PENDING_HANDOFF_KEY = 'ndear_pending_certificate_handoff'
@@ -20,6 +20,21 @@ function queryValue(url: string, key: string): string {
 
 async function importHandoff(url: string): Promise<void> {
   await AsyncStorage.setItem(PENDING_HANDOFF_KEY, url)
+  const credentialUrl = queryValue(url, 'url')
+  if (credentialUrl) {
+    const parsedUrl = new URL(credentialUrl)
+    if (parsedUrl.protocol !== 'https:' && parsedUrl.protocol !== 'http:') {
+      throw new Error('Credential link must use HTTP or HTTPS.')
+    }
+    const credentials = await credentialsFrom(parsedUrl.toString())
+    if (credentials.length === 0) {
+      throw new Error('No verifiable credential was found at that link.')
+    }
+    await importCertificateIfVerified(credentials[0])
+    await AsyncStorage.removeItem(PENDING_HANDOFF_KEY)
+    return
+  }
+
   const name = queryValue(url, 'name')
   const dob = queryValue(url, 'dob')
   const certificateId = queryValue(url, 'certificateId')
@@ -33,34 +48,19 @@ async function importHandoff(url: string): Promise<void> {
   )
   if (!response.ok)
     throw new Error(`Certificate lookup failed with status ${response.status}`)
-  const data = await response.json()
-  const certificates = Array.isArray(data.certificates) ? data.certificates : []
+  const data: unknown = await response.json()
+  const responseCertificates =
+    typeof data === 'object' && data !== null && 'certificates' in data
+      ? data.certificates
+      : undefined
+  const certificates = Array.isArray(responseCertificates)
+    ? responseCertificates.filter(isFetchedCertificate)
+    : []
   const matching = certificateId
-    ? certificates.filter(
-        (credential: { _raw?: { certificateId?: string } }) =>
-          credential._raw?.certificateId === certificateId
-      )
+    ? certificates.filter((credential) => credential.id.endsWith(certificateId))
     : certificates
-  const profile = selectRawProfileRecords(store.getState())[0]
-  if (!profile) return
-
-  const existingIds = new Set(
-    selectRawCredentialRecords(store.getState()).map(
-      (record) => record.credential.id
-    )
-  )
-  for (const credential of matching) {
-    if (!existingIds.has(credential.id)) {
-      await store
-        .dispatch(
-          addCredential({
-            credential: credential as IVerifiableCredential,
-            profileRecordId: profile._id
-          })
-        )
-        .unwrap()
-    }
-  }
+  for (const credential of matching)
+    await importCertificateIfVerified(credential)
   await AsyncStorage.removeItem(PENDING_HANDOFF_KEY)
 }
 
@@ -70,6 +70,12 @@ export async function handleCertificateHandoff(url: string): Promise<boolean> {
     await importHandoff(url)
   } catch (error) {
     console.warn('[certificateHandoff] Import failed:', error)
+    Alert.alert(
+      'Credential not imported',
+      error instanceof Error
+        ? error.message
+        : 'The credential could not be verified and stored.'
+    )
   }
   return true
 }

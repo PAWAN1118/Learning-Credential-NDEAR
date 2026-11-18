@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { AccessibilityInfo, View } from 'react-native'
+import { AccessibilityInfo, Text, View } from 'react-native'
 import { Button } from 'react-native-elements'
 import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons'
 import { TextInput } from 'react-native-paper'
@@ -36,6 +36,13 @@ import {
   parseWalletApiMessage
 } from '../../lib/walletRequestApi'
 import { isInteractionUrl } from '../../lib/interactionUrl'
+import { handleCertificateHandoff } from '../../lib/certificateHandoff'
+import ConfirmModal from '../../components/ConfirmModal/ConfirmModal'
+import {
+  certForgeIdPrintedInText,
+  isCertForgeHomepage
+} from '../../lib/certForge'
+import { learningCertificateUrlPrintedInText } from '../../lib/decode'
 
 export async function goToCredentialFoyer(
   credentialRequestParams?: CredentialRequestParams
@@ -53,6 +60,8 @@ export async function goToCredentialFoyer(
 export default function AddScreen(): React.ReactElement {
   const { styles, theme, mixins } = useDynamicStyles(dynamicStyleSheet)
   const [inputValue, setInputValue] = useState('')
+  const [certForgeId, setCertForgeId] = useState('')
+  const [certForgePromptOpen, setCertForgePromptOpen] = useState(false)
   const dispatch = useAppDispatch()
   const inputIsValid = inputValue !== ''
 
@@ -92,12 +101,20 @@ export default function AddScreen(): React.ReactElement {
    *   - An LCW universal app link (https://lcw.app/request?request=... )
    *   - An LCW custom protocol link (dccrequest://..?request=)
    *   - Raw JSON Wallet API Request
-   *   - Raw JSON VP or VC
-   *   - A URL to a remotely hosted VC or VP
+   *   - Raw JSON VP or VC, or a compact JWT VC
+   *   - A URL to a remotely hosted VC, VP, or JWT VC
    *   - A Universal Interact invitation link (has a query param `iuv=1`)
    */
   async function addCredentialsFrom(text: string) {
     text = text.trim()
+
+    if (isCertForgeHomepage(text)) {
+      setCertForgeId('')
+      setCertForgePromptOpen(true)
+      return
+    }
+
+    if (await handleCertificateHandoff(text)) return
 
     if (isLegacyCredentialRequest(text)) {
       const params = legacyRequestParamsFromUrl(text)
@@ -127,16 +144,58 @@ export default function AddScreen(): React.ReactElement {
   }
 
   async function addFromFile() {
+    let fileContents = ''
     try {
-      const text = await pickAndReadFile()
-      await addCredentialsFrom(text)
+      fileContents = await pickAndReadFile()
+      await addCredentialsFrom(fileContents)
     } catch (err) {
       if (errorMessageMatches(err, CANCEL_PICKER_MESSAGES)) return
+
+      const certForgeId = certForgeIdPrintedInText(fileContents)
+      if (certForgeId) {
+        try {
+          await addCredentialsFrom(certForgeId)
+          return
+        } catch (lookupError) {
+          err = lookupError
+        }
+      } else {
+        const certificateUrl = learningCertificateUrlPrintedInText(fileContents)
+        if (certificateUrl) {
+          try {
+            await addCredentialsFrom(certificateUrl)
+            return
+          } catch (urlError) {
+            err = urlError
+          }
+          console.error(err)
+          await displayGlobalModal({
+            title: 'Unable to Add Credentials',
+            body:
+              err instanceof Error
+                ? err.message
+                : 'Udemy could not resolve this certificate ID.',
+            cancelButton: false,
+            confirmText: 'Close'
+          })
+          return
+        }
+        await displayGlobalModal({
+          title: 'Certificate File Not Recognized',
+          body: 'For Udemy, choose the certificate PDF or paste its public URL or full UC-… ID. Android reads scanned PDF pages automatically. For SAP, choose a selectable-text certificate PDF or paste its public Credly badge URL. Open Badges JSON/PNG files can also be imported.',
+          cancelButton: false,
+          confirmText: 'Close'
+        })
+        return
+      }
 
       console.error(err)
       await displayGlobalModal({
         title: 'Unable to Add Credentials',
-        body: 'Ensure the file contains one or more credentials, and is a supported file type.',
+        body:
+          err instanceof Error
+            ? err.message
+            : 'Paste a Udemy certificate URL or SAP Credly badge URL, or choose a credential JSON, JWT, or baked Open Badges PNG file.',
         cancelButton: false,
         confirmText: 'Close'
       })
@@ -150,7 +209,7 @@ export default function AddScreen(): React.ReactElement {
       console.error(err)
       await displayGlobalModal({
         title: 'Unable to Add Credentials',
-        body: 'Contents not recognized.',
+        body: err instanceof Error ? err.message : 'Contents not recognized.',
         cancelButton: false,
         confirmText: 'Close'
       })
@@ -160,10 +219,42 @@ export default function AddScreen(): React.ReactElement {
   async function onReadQRCode(text: string) {
     AccessibilityInfo.announceForAccessibility('QR Code Scanned')
 
+    if (isCertForgeHomepage(text)) {
+      navigationRef.goBack()
+      setCertForgeId('')
+      setCertForgePromptOpen(true)
+      return
+    }
+
     try {
       await addCredentialsFrom(text)
     } catch (err) {
       console.warn(err)
+
+      if (
+        err instanceof Error &&
+        err.message === 'No credentials were resolved from the text'
+      ) {
+        throw new HumanReadableError(
+          'This QR does not contain a supported credential. Use a signed demo QR from Settings → Offline Demo Organizations.'
+        )
+      }
+
+      if (
+        err instanceof Error &&
+        (err.message.startsWith('CertForge') ||
+          err.message.startsWith('This CertForge'))
+      ) {
+        throw new HumanReadableError(err.message)
+      }
+
+      if (
+        err instanceof Error &&
+        (err.message.startsWith('This QR opens an issuer webpage') ||
+          err.message.startsWith('This badge page did not provide'))
+      ) {
+        throw new HumanReadableError(err.message)
+      }
 
       if (errorMessageMatches(err, Object.values(PresentationError))) {
         throw new HumanReadableError(err.message)
@@ -238,7 +329,7 @@ export default function AddScreen(): React.ReactElement {
                     primary: theme.color.brightAccent
                   }
                 }}
-                label="Paste JSON or URL"
+                label="Paste JSON, Udemy URL, SAP Credly URL, or CertForge ID"
                 mode="outlined"
                 keyboardAppearance={theme.keyboardAppearance}
                 onTextInput={() => {}}
@@ -267,6 +358,48 @@ export default function AddScreen(): React.ReactElement {
           </View>
         </Motion>
       </ScrollView>
+      <ConfirmModal
+        open={certForgePromptOpen}
+        title="Enter CertForge ID"
+        confirmText="Find certificate"
+        cancelText="Cancel"
+        confirmButtonDisabled={certForgeId.trim().length === 0}
+        onRequestClose={() => setCertForgePromptOpen(false)}
+        onCancel={() => setCertForgePromptOpen(false)}
+        onConfirm={() => {
+          const id = certForgeId.trim()
+          setCertForgePromptOpen(false)
+          void addCredentialsFrom(id).catch(async (error) => {
+            await displayGlobalModal({
+              title: 'Unable to Find Certificate',
+              body:
+                error instanceof Error
+                  ? error.message
+                  : 'CertForge could not return a verified credential.',
+              cancelButton: false,
+              confirmText: 'Close'
+            })
+          })
+        }}
+      >
+        <Text style={mixins.modalBodyText}>
+          Enter the CertForge ID printed on the certificate. For Udemy, paste
+          the public certificate URL; for SAP, paste the Credly public badge
+          URL. JSON, JWT, or baked badge PNG files can be imported directly.
+        </Text>
+        <TextInput
+          autoCapitalize="characters"
+          autoCorrect={false}
+          value={certForgeId}
+          onChangeText={setCertForgeId}
+          label="Certificate ID"
+          mode="outlined"
+          placeholder="CF-2026-XXXXXXXX"
+          testID="certforge-id-input"
+          onTextInput={() => {}}
+          tvParallaxProperties={undefined}
+        />
+      </ConfirmModal>
     </>
   )
 }

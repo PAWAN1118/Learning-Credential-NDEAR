@@ -11,6 +11,7 @@ yarn-error.log
 web-build/
 yarn.lock
 coverage/
+.issuer-demo-data/
 
 # macOS
 .DS_Store

@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#102538" />
+    <title>NDEAR Demo Issuers</title>
+    <style>
+      :root{font-family:Inter,Segoe UI,Arial,sans-serif;color:#102538;background:#f4f7f8;font-synthesis:none}*{box-sizing:border-box}body{margin:0}.top{background:#102538;color:#f5f8fa;padding:26px max(22px,calc((100vw - 1120px)/2))}.top h1{margin:0;font-size:26px}.top p{margin:8px 0 0;color:#bfd0dc}.wrap{max-width:1120px;margin:28px auto;padding:0 20px}.notice{background:#fff3d9;border:1px solid #eacb83;border-radius:12px;padding:14px 17px;margin-bottom:20px;line-height:1.55}.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.panel{background:white;border:1px solid #dbe4e9;border-radius:14px;padding:22px;box-shadow:0 8px 28px #16324a0b}.panel h2{font-size:18px;margin:0 0 16px}.panel p{color:#546976;line-height:1.55}.wide{grid-column:1/-1}label{display:block;font-size:13px;font-weight:650;margin:14px 0 6px}input,select,textarea{width:100%;border:1px solid #b8c8d1;border-radius:8px;padding:11px 12px;font:inherit;background:#fff;color:#102538}textarea{min-height:76px;resize:vertical}button,.button{display:inline-block;border:0;border-radius:8px;background:#006a7b;color:white;padding:11px 15px;font:inherit;font-weight:650;cursor:pointer;text-decoration:none;margin-top:14px}button.secondary,.button.secondary{background:#e4eef1;color:#17495b}button.danger{background:#a82f37}.result{margin-top:14px;padding:13px;background:#f2f7f8;border-radius:9px;white-space:pre-wrap;overflow-wrap:anywhere}.result a{color:#006a7b}.credential{max-height:360px;overflow:auto;background:#102538;color:#e2f2f6;padding:14px;border-radius:9px;font:12px/1.5 Consolas,monospace;white-space:pre-wrap}.checks{list-style:none;padding:0}.checks li{padding:8px 10px;border-radius:7px;background:#edf3f5;margin:6px 0}.ok{color:#136a3b}.bad{color:#9d2430}.qr{width:180px;height:180px;padding:12px;background:#fff;border:1px solid #dbe4e9;border-radius:10px}.issuerList{display:flex;gap:8px;flex-wrap:wrap}.chip{background:#e7f0f2;border-radius:100px;padding:7px 11px;font-size:13px}.muted{font-size:12px;color:#637781}.hidden{display:none}@media(max-width:760px){.grid{grid-template-columns:1fr}.wide{grid-column:auto}}
+    </style>
+  </head>
+  <body>
+    <header class="top">
+      <h1>NDEAR credential demo</h1>
+      <p>Three independent demo issuer keys · JSON / JSON-LD / Open Badges 3.0 / PNG / JWT · EdDSA</p>
+    </header>
+    <main class="wrap">
+      <div class="notice"><strong>Demo issuers only.</strong> These sample profiles are not affiliated with or endorsed by any real school or institution. Do not enter real learner data. Issuance is protected by a local admin token.</div>
+      <section class="panel" style="margin-bottom:18px">
+        <h2>Issuer profiles</h2>
+        <div id="issuers" class="issuerList">Loading…</div>
+      </section>
+      <div class="grid">
+        <section class="panel">
+          <h2>Issue a signed credential</h2>
+          <label for="token">Demo admin token</label>
+          <input id="token" type="password" autocomplete="off" placeholder="Token printed by the local issuer server" />
+          <label for="issuer">Issuer profile</label>
+          <select id="issuer"></select>
+          <label for="learner">Learner name (use a demo name)</label>
+          <input id="learner" value="Demo Learner" maxlength="100" />
+          <label for="achievement">Achievement</label>
+          <input id="achievement" value="Web Development Foundations" maxlength="120" />
+          <label for="description">Description</label>
+          <textarea id="description" maxlength="500">Completed a demonstration learning pathway.</textarea>
+          <button id="issue">Issue signed credential (five formats)</button>
+          <div id="issueResult" class="result hidden"></div>
+        </section>
+        <section class="panel">
+          <h2>Verify a credential</h2>
+          <p>Paste an issued credential URL or its identifier. This view reads the actual signed credential and its verification checks.</p>
+          <label for="credentialId">Credential URL or ID</label>
+          <input id="credentialId" placeholder="Paste credential URL or UUID" />
+          <button id="verify">Verify credential</button>
+          <div id="verifyResult" class="result hidden"></div>
+        </section>
+        <section class="panel wide">
+          <h2>Verification result</h2>
+          <div id="detail" class="muted">No credential verified yet.</div>
+        </section>
+      </div>
+    </main>
+    <script>
+      const $ = (id) => document.getElementById(id)
+      const json = async (response) => {
+        const data = await response.json()
+        if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`)
+        return data
+      }
+      let issuers = []
+      async function loadIssuers() {
+        issuers = await json(await fetch('/api/issuers'))
+        $('issuer').innerHTML = issuers.map((issuer) => `<option value="${issuer.id}">${issuer.name} · ${issuer.did}</option>`).join('')
+        $('issuers').innerHTML = issuers.map((issuer) => `<span class="chip">${issuer.name}</span>`).join('')
+      }
+      function setResult(el, content) { el.classList.remove('hidden'); el.innerHTML = content }
+      $('issue').onclick = async () => {
+        const button = $('issue')
+        button.disabled = true
+        try {
+          const result = await json(await fetch('/api/credentials', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${$('token').value}` },
+            body: JSON.stringify({ issuerId: $('issuer').value, learnerName: $('learner').value, achievementName: $('achievement').value, description: $('description').value })
+          }))
+          const qr = `/api/qr.svg?text=${encodeURIComponent(result.walletLink)}`
+          const formats = result.formats || {}
+          setResult($('issueResult'), `<strong>Signed credential issued</strong><p>${result.credential.issuer.name} · ${result.credential.type.join(', ')}</p><p>Download formats:</p><p><a href="${formats.json}" target="_blank" rel="noreferrer">JSON VC</a> · <a href="${formats.jsonld}" target="_blank" rel="noreferrer">JSON-LD VC</a> · <a href="${formats.openBadges}" target="_blank" rel="noreferrer">Open Badges 3.0</a> · <a href="${formats.png}" target="_blank" rel="noreferrer">PNG badge</a> · <a href="${formats.jwt}" target="_blank" rel="noreferrer">JWT VC</a></p><p><a href="${result.walletLink}">Open wallet import link</a></p><p>Scan this QR with the wallet:</p><img class="qr" src="${qr}" alt="Wallet import QR code"><details><summary>Show complete signed credential</summary><pre class="credential">${escapeHtml(JSON.stringify(result.credential, null, 2))}</pre></details><details><summary>Show JWT verifiable credential</summary><pre class="credential">${escapeHtml(result.jwt || '')}</pre></details><button class="danger" onclick="revoke('${result.credential.id.split('/').pop()}')">Revoke this credential</button>`)
+          $('credentialId').value = result.credentialUrl
+        } catch (error) {
+          setResult($('issueResult'), `<span class="bad">${escapeHtml(error.message)}</span>`)
+        } finally { button.disabled = false }
+      }
+      window.revoke = async (id) => {
+        try {
+          await json(await fetch(`/api/credentials/${encodeURIComponent(id)}/revoke`, { method: 'POST', headers: { Authorization: `Bearer ${$('token').value}` } }))
+          await verifyCredential()
+        } catch (error) { setResult($('verifyResult'), `<span class="bad">${escapeHtml(error.message)}</span>`) }
+      }
+      async function verifyCredential() {
+        const entered = $('credentialId').value.trim()
+        const id = entered.split('/').filter(Boolean).pop()
+        if (!id) throw new Error('Enter a credential ID or URL.')
+        const result = await json(await fetch(`/api/verify/${encodeURIComponent(id)}`))
+        const rows = result.log.map((check) => `<li class="${check.valid ? 'ok' : 'bad'}"><strong>${escapeHtml(check.id)}</strong>: ${check.valid ? 'passed' : escapeHtml(check.error?.message || 'failed')}</li>`).join('')
+        setResult($('verifyResult'), `<strong class="${result.verified ? 'ok' : 'bad'}">${result.verified ? 'Verified' : 'Not verified'}</strong><ul class="checks">${rows || '<li>No checks were returned</li>'}</ul><details><summary>Credential data</summary><pre class="credential">${escapeHtml(JSON.stringify(result.credential, null, 2))}</pre></details>`)
+        const subject = result.credential.credentialSubject || {}
+        const achievement = subject.achievement || subject.hasCredential || {}
+        $('detail').innerHTML = `<p><strong>${escapeHtml(result.credential.issuer?.name || 'Issuer')}</strong> · ${escapeHtml(result.credential.issuer?.id || '')}</p><p>${escapeHtml(subject.name || 'Learner')} · ${escapeHtml(achievement.name || result.credential.name || 'Credential')}</p><p class="${result.revoked ? 'bad' : 'ok'}">${result.revoked ? 'Revoked' : 'Not revoked'}</p><p>Format: ${result.credential.type.includes('OpenBadgeCredential') ? 'Open Badges 3.0 Verifiable Credential (JSON-LD)' : 'W3C Verifiable Credential (JSON-LD)'}</p>`
+      }
+      $('verify').onclick = async () => {
+        try { await verifyCredential() }
+        catch (error) { setResult($('verifyResult'), `<span class="bad">${escapeHtml(error.message)}</span>`) }
+      }
+      function escapeHtml(value) { return String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char])) }
+      loadIssuers().catch((error) => { $('issuers').textContent = error.message })
+      const queryId = new URLSearchParams(location.search).get('credential')
+      if (queryId) { $('credentialId').value = queryId; $('verify').click() }
+    </script>
+  </body>
+</html>

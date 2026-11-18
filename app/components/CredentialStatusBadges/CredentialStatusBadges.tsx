@@ -60,6 +60,17 @@ function CredentialStatusBadges({
       )
     }
 
+    if (verifyCredential?.error || verifyCredential?.result?.error) {
+      return (
+        <StatusBadge
+          backgroundColor={badgeBackgroundColor}
+          color={theme.color.warning}
+          label="Unable to Verify"
+          icon="help-outline"
+        />
+      )
+    }
+
     // Treat empty log and null verification result as Not Verified
     if (logs.length === 0 && isVerified === null) {
       return (
@@ -73,17 +84,13 @@ function CredentialStatusBadges({
     }
 
     //  Evaluate logs
-    const details = logs.reduce<Record<string, boolean>>((acc, log) => {
-      acc[log.id] = log.valid
-      return acc
-    }, {})
-
-    // Add default values for expected checks if missing
-    ;['valid_signature', 'expiration', 'registered_issuer'].forEach((key) => {
-      if (!(key in details)) {
-        details[key] = false
-      }
-    })
+    const details = logs.reduce<Record<string, boolean | undefined>>(
+      (acc, log) => {
+        acc[log.id] = log.valid
+        return acc
+      },
+      {}
+    )
 
     const hasFailure = ['valid_signature', 'revocation_status'].some(
       (key) => details[key] === false
@@ -111,6 +118,17 @@ function CredentialStatusBadges({
           color={theme.color.warning}
           label="Warning"
           icon="error-outline"
+        />
+      )
+    }
+
+    if (isVerified !== true) {
+      return (
+        <StatusBadge
+          backgroundColor={badgeBackgroundColor}
+          color={theme.color.warning}
+          label="Verification Incomplete"
+          icon="help-outline"
         />
       )
     }

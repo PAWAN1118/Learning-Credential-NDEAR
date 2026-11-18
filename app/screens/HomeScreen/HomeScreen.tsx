@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react'
+import React, { useState } from 'react'
 import {
   Text,
   View,
@@ -10,7 +10,6 @@ import {
 import { Button } from 'react-native-elements'
 import { MaterialIcons } from '@expo/vector-icons'
 import { useSelector } from 'react-redux'
-import { useFocusEffect } from '@react-navigation/native'
 import { Swipeable, TouchableOpacity } from 'react-native-gesture-handler'
 
 import { CredentialItem, NavHeader, ConfirmModal } from '../../components'
@@ -30,10 +29,6 @@ import {
   selectRawCredentialRecords
 } from '../../store/slices/credential'
 import { getCredentialName } from '../../lib/credentialName'
-import {
-  getStudentProfile,
-  syncAndImportStudentCertificates
-} from '../../lib/studentCertificates'
 import Recommendations from '../../components/Recommendations/Recommendations'
 
 type AddMethod = {
@@ -59,11 +54,9 @@ const ADD_METHODS: AddMethod[] = [
   {
     icon: 'file-upload',
     title: 'Import from a file',
-    hint: 'Restore a JSON backup or add a credential you already hold.'
+    hint: 'Add a JSON, JSON-LD, Open Badge, PNG, or JWT credential you already hold.'
   }
 ]
-
-const CONNECTED_UNIVERSITY_URL = 'https://certificate-qc86.vercel.app/'
 
 export default function HomeScreen({
   navigation
@@ -76,28 +69,6 @@ export default function HomeScreen({
   )
   const dispatch = useAppDispatch()
   const share = useShareCredentials()
-
-  useFocusEffect(
-    useCallback(() => {
-      let active = true
-      const sync = async () => {
-        const profile = await getStudentProfile()
-        if (!profile || !active) return
-        try {
-          await syncAndImportStudentCertificates(
-            profile.fullName,
-            profile.dateOfBirth
-          )
-        } catch (error) {
-          console.warn('[studentCertificates] Wallet refresh failed:', error)
-        }
-      }
-      void sync()
-      return () => {
-        active = false
-      }
-    }, [])
-  )
 
   const itemToDeleteName = itemToDelete
     ? getCredentialName(itemToDelete.credential)
@@ -198,20 +169,25 @@ export default function HomeScreen({
           <MaterialIcons name="check" size={18} color="#FFFFFF" />
         </View>
         <View style={styles.connectedUniversityCopy}>
-          <Text style={styles.connectedUniversityLabel}>
-            CONNECTED UNIVERSITY
-          </Text>
-          <Text style={styles.connectedUniversityName}>ANITS</Text>
+          <Text style={styles.connectedUniversityLabel}>DEMO ISSUERS</Text>
+          <Text style={styles.connectedUniversityName}>Three demo keys</Text>
           <Text
             style={styles.connectedUniversityLink}
-            onPress={() => Linking.openURL(CONNECTED_UNIVERSITY_URL)}
+            onPress={() => {
+              if (navigationRef.isReady()) {
+                navigationRef.navigate('HomeNavigation', {
+                  screen: 'SettingsNavigation',
+                  params: { screen: 'ConnectedUniversitiesScreen' }
+                })
+              }
+            }}
             accessibilityRole="link"
-            accessibilityLabel="Open ANITS university website"
+            accessibilityLabel="Open demo issuer settings"
           >
-            certificate-qc86.vercel.app ↗
+            View offline sample credentials ↗
           </Text>
         </View>
-        <Text style={styles.connectedUniversityStatus}>Connected</Text>
+        <Text style={styles.connectedUniversityStatus}>Offline</Text>
       </View>
     )
   }

@@ -116,6 +116,39 @@ export default function VerificationCard({
       )
     }
 
+    if (
+      verifyPayload?.error ||
+      verifyPayload?.result.error ||
+      verified === null
+    ) {
+      return (
+        <View style={styles.flexRow}>
+          <MaterialIcons
+            name="help-outline"
+            size={theme.iconSize}
+            color={theme.color.warning}
+            accessibilityLabel="Verification unavailable, Icon"
+          />
+          <View>
+            <Text style={[styles.dataValue, styles.proofText]}>
+              Could Not Verify Credential
+            </Text>
+            {showDetails && (
+              <Text
+                style={[
+                  styles.dataValue,
+                  styles.proofText,
+                  styles.lastCheckedText
+                ]}
+              >
+                Check your connection and try again.
+              </Text>
+            )}
+          </View>
+        </View>
+      )
+    }
+
     return (
       <View style={styles.flexRow}>
         <MaterialCommunityIcons

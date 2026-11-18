@@ -1,6 +1,9 @@
 import { createContext } from 'react'
 import { RegistryClient } from '@digitalcredentials/issuer-registry-client'
-import { KnownDidRegistries } from '../../app.config'
+import {
+  getDemoRegistryUrl,
+  registriesIncludingDemo
+} from '../lib/demoRegistry'
 
 const registries = new RegistryClient()
 
@@ -14,6 +17,6 @@ export async function loadKnownDidRegistries({
 }: {
   client: RegistryClient
 }) {
-  await client.load({ config: KnownDidRegistries })
-  // now available for usage through useContext(DidRegistryContext)
+  const demoUrl = await getDemoRegistryUrl()
+  await client.load({ config: registriesIncludingDemo(demoUrl) })
 }

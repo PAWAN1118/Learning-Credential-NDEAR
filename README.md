@@ -1,4 +1,3 @@
-
 # Learner Credential Wallet
 
 A cross-platform (iOS / Android) mobile wallet for **W3C Verifiable Credentials** and **Open Badges v3**. It lets a learner receive, store, verify, and selectively share digital academic credentials — entirely on-device, under their own cryptographic keys.
@@ -24,19 +23,20 @@ Built with **Expo SDK 53**, **React Native 0.79.6**, **React 19**, and an **encr
 13. [Getting Started](#13-getting-started)
 14. [Testing](#14-testing)
 15. [Known Issues](#15-known-issues)
+16. [Friend testing (APK)](#16-friend-testing-apk)
 
 ---
 
 ## 1. What It Does
 
-| Capability | Description |
-|---|---|
-| **Receive** | Accepts credentials via deep link, QR code, VC-API exchange, or file/PNG import |
-| **Verify** | Cryptographically verifies signatures and checks the issuer against known DID registries |
-| **Store** | Persists credentials in an AES-encrypted Realm database on the device only |
-| **Organize** | Multiple *profiles*, each with its own DID and its own credential set |
-| **Share** | Verifiable Presentations, QR codes, public links, PDF export, LinkedIn |
-| **Backup** | Full wallet or per-profile JSON export via the native share sheet |
+| Capability   | Description                                                                              |
+| ------------ | ---------------------------------------------------------------------------------------- |
+| **Receive**  | Accepts credentials via deep link, QR code, VC-API exchange, or file/PNG import          |
+| **Verify**   | Cryptographically verifies signatures and checks the issuer against known DID registries |
+| **Store**    | Persists credentials in an AES-encrypted Realm database on the device only               |
+| **Organize** | Multiple _profiles_, each with its own DID and its own credential set                    |
+| **Share**    | Verifiable Presentations, QR codes, public links, PDF export, LinkedIn                   |
+| **Backup**   | Full wallet or per-profile JSON export via the native share sheet                        |
 
 **Key principle:** there is no server-side account. Private keys and credentials never leave the device unless the user explicitly shares them.
 
@@ -44,19 +44,19 @@ Built with **Expo SDK 53**, **React Native 0.79.6**, **React 19**, and an **encr
 
 ## 2. Technology Stack
 
-| Layer | Technology |
-|---|---|
-| Runtime | React Native 0.79.6, React 19, Hermes |
-| Framework | Expo SDK 53 (dev-client, bare workflow via prebuild) |
-| Language | TypeScript 5.8 |
-| State | Redux Toolkit + React-Redux 9 |
-| Database | Realm 20.1.0 (AES-256 encrypted) |
-| Navigation | React Navigation 6 (stack + bottom tabs) |
-| Key storage | `expo-secure-store` (Keychain / Keystore) + `react-native-keychain` for biometrics |
-| Crypto / VC | `@digitalcredentials/*` — `vc`, `verifier-core`, `ssi`, `did-method-key`, `vpqr`, `ezcap` |
-| Signature suites | Ed25519Signature2020, EdDSA-RDFC-2022 |
-| Camera | `react-native-vision-camera` 4.7.1 (QR scanning) |
-| UI | React Native Elements, React Native Paper, custom theming |
+| Layer            | Technology                                                                                |
+| ---------------- | ----------------------------------------------------------------------------------------- |
+| Runtime          | React Native 0.79.6, React 19, Hermes                                                     |
+| Framework        | Expo SDK 53 (dev-client, bare workflow via prebuild)                                      |
+| Language         | TypeScript 5.8                                                                            |
+| State            | Redux Toolkit + React-Redux 9                                                             |
+| Database         | Realm 20.1.0 (AES-256 encrypted)                                                          |
+| Navigation       | React Navigation 6 (stack + bottom tabs)                                                  |
+| Key storage      | `expo-secure-store` (Keychain / Keystore) + `react-native-keychain` for biometrics        |
+| Crypto / VC      | `@digitalcredentials/*` — `vc`, `verifier-core`, `ssi`, `did-method-key`, `vpqr`, `ezcap` |
+| Signature suites | Ed25519Signature2020, EdDSA-RDFC-2022                                                     |
+| Camera           | `react-native-vision-camera` 4.7.1 (QR scanning)                                          |
+| UI               | React Native Elements, React Native Paper, custom theming                                 |
 
 > **Architecture note:** the New Architecture (Fabric/TurboModules) is **disabled** — `newArchEnabled=false` in both `android/gradle.properties` and the `expo-build-properties` plugin. Several native dependencies do not yet support it.
 
@@ -160,15 +160,15 @@ learner-credential-wallet/
 
 ### The `lib/` domain layer, grouped by concern
 
-| Concern | Modules |
-|---|---|
+| Concern                  | Modules                                                                                                                   |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
 | **Credential lifecycle** | `validate` · `verifiableObject` · `credentialHash` · `credentialValidityPeriod` · `credentialSecurity` · `credentialName` |
-| **DID & keys** | `did` · `biometrics` · `registerWallet` |
-| **Presentation** | `present` · `composeVp` · `credentialsFromPresentation` · `credentialsFromVpqr` |
-| **Exchange** | `exchanges` · `credentialRequest` · `interactionUrl` · `handleZcapRequest` · `walletRequestApi` |
-| **Sharing** | `publicLink` · `shareData` · `shareRequest` · `svgToPdf` · `selectCredentials` · `credentialMatching` |
-| **Storage** | `export` · `import` · `parseWallet` · `asyncStorage` · `cache` · `walletAttachedStorage` |
-| **Support** | `error` · `text` · `time` · `encode` · `decode` · `dynamicStyles` · `globalModal` |
+| **DID & keys**           | `did` · `biometrics` · `registerWallet`                                                                                   |
+| **Presentation**         | `present` · `composeVp` · `credentialsFromPresentation` · `credentialsFromVpqr`                                           |
+| **Exchange**             | `exchanges` · `credentialRequest` · `interactionUrl` · `handleZcapRequest` · `walletRequestApi`                           |
+| **Sharing**              | `publicLink` · `shareData` · `shareRequest` · `svgToPdf` · `selectCredentials` · `credentialMatching`                     |
+| **Storage**              | `export` · `import` · `parseWallet` · `asyncStorage` · `cache` · `walletAttachedStorage`                                  |
+| **Support**              | `error` · `text` · `time` · `encode` · `decode` · `dynamicStyles` · `globalModal`                                         |
 
 ---
 
@@ -299,11 +299,11 @@ stateDiagram-v2
 Implementation — `app/navigation/AppNavigation/AppNavigation.tsx`:
 
 ```tsx
-if (needsRestart)                       return <RestartScreen />
-else if (isUnlocked && isInitialized)   return <RootNavigation />
-else if (!isUnlocked && isInitialized)  return <LoginScreen />
+if (needsRestart) return <RestartScreen />
+else if (isUnlocked && isInitialized) return <RootNavigation />
+else if (!isUnlocked && isInitialized) return <LoginScreen />
 else if (!isUnlocked && !isInitialized) return <SetupNavigation />
-else                                    return null
+else return null
 ```
 
 ---
@@ -602,16 +602,16 @@ graph TB
     style REALM fill:#1f4d3d,stroke:#4caf82,color:#fff
 ```
 
-| Control | Implementation |
-|---|---|
-| Key derivation | PBKDF2-HMAC-SHA512, 10,000 iterations, 32-byte output |
-| Salt | 64 cryptographically random bytes, generated once at setup |
-| Database encryption | Realm AES-256 via `encryptionKey` in the Realm config |
-| Key storage | `expo-secure-store` → iOS Keychain / Android Keystore |
-| Biometrics | Optional; the derived key is stored behind a biometric-gated keychain entry |
-| Passphrase | Never written to disk — exists only as a function argument |
-| Lock | Drops the in-memory Realm reference and clears the key from SecureStore |
-| Signing keys | Ed25519 (`did:key`), generated from 32 bytes of secure random per profile |
+| Control             | Implementation                                                              |
+| ------------------- | --------------------------------------------------------------------------- |
+| Key derivation      | PBKDF2-HMAC-SHA512, 10,000 iterations, 32-byte output                       |
+| Salt                | 64 cryptographically random bytes, generated once at setup                  |
+| Database encryption | Realm AES-256 via `encryptionKey` in the Realm config                       |
+| Key storage         | `expo-secure-store` → iOS Keychain / Android Keystore                       |
+| Biometrics          | Optional; the derived key is stored behind a biometric-gated keychain entry |
+| Passphrase          | Never written to disk — exists only as a function argument                  |
+| Lock                | Drops the in-memory Realm reference and clears the key from SecureStore     |
+| Signing keys        | Ed25519 (`did:key`), generated from 32 bytes of secure random per profile   |
 
 Documented invariants in `DatabaseAccess.ts`:
 
@@ -625,13 +625,13 @@ Documented invariants in `DatabaseAccess.ts`:
 
 ## 11. External Services
 
-| Service | URL | Purpose |
-|---|---|---|
-| VerifierPlus | `https://verifierplus.org` | Hosts public shareable links for credentials |
-| DCC Known Registries | `digitalcredentials.github.io/dcc-known-registries` | Issuer trust list used during verification |
-| DCC Pilot / Sandbox / Community / DCC Registry | `digitalcredentials.github.io/*-registry` | Individual issuer registries |
-| Wallet Attached Storage | `https://storage.dcc.did.coop` | Optional remote credential storage (zcap-authorized) |
-| Registration | `https://lcw.app/register-wallet.html` | Wallet registration handoff |
+| Service                                        | URL                                                 | Purpose                                              |
+| ---------------------------------------------- | --------------------------------------------------- | ---------------------------------------------------- |
+| VerifierPlus                                   | `https://verifierplus.org`                          | Hosts public shareable links for credentials         |
+| DCC Known Registries                           | `digitalcredentials.github.io/dcc-known-registries` | Issuer trust list used during verification           |
+| DCC Pilot / Sandbox / Community / DCC Registry | `digitalcredentials.github.io/*-registry`           | Individual issuer registries                         |
+| Wallet Attached Storage                        | `https://storage.dcc.did.coop`                      | Optional remote credential storage (zcap-authorized) |
+| Registration                                   | `https://lcw.app/register-wallet.html`              | Wallet registration handoff                          |
 
 All are configurable in `app.config.js`. **If you fork this wallet, point `VERIFIER_INSTANCE_URL` at your own verifier instance.**
 
@@ -639,14 +639,14 @@ All are configurable in `app.config.js`. **If you fork this wallet, point `VERIF
 
 ## 12. Deep Links
 
-| Scheme | Example | Handler |
-|---|---|---|
-| `dccrequest://request` | `dccrequest://request?issuer=…&vc_request_url=…` | Credential issuance |
-| `dccrequest://present` | `dccrequest://present?…` | Presentation request |
-| `interaction:` | `interaction:/…` | VC-API exchange |
-| `org.dcconsortium://` | legacy | Legacy request format |
-| `https://lcw.app/request` | universal link | Credential issuance |
-| `https://lcw.app/mobile` | universal app link | Generic app open |
+| Scheme                    | Example                                          | Handler               |
+| ------------------------- | ------------------------------------------------ | --------------------- |
+| `dccrequest://request`    | `dccrequest://request?issuer=…&vc_request_url=…` | Credential issuance   |
+| `dccrequest://present`    | `dccrequest://present?…`                         | Presentation request  |
+| `interaction:`            | `interaction:/…`                                 | VC-API exchange       |
+| `org.dcconsortium://`     | legacy                                           | Legacy request format |
+| `https://lcw.app/request` | universal link                                   | Credential issuance   |
+| `https://lcw.app/mobile`  | universal app link                               | Generic app open      |
 
 Routing lives in `app/lib/deepLinkConfig.ts`, which classifies each incoming URL into one of three paths before handing off to React Navigation:
 
@@ -663,13 +663,13 @@ otherwise                      → React Navigation linking
 
 ### Prerequisites
 
-| Tool | Version |
-|---|---|
-| Node.js | 20+ (tested on 24) |
-| JDK | **21** (Android Studio's bundled JBR works) |
+| Tool        | Version                                     |
+| ----------- | ------------------------------------------- |
+| Node.js     | 20+ (tested on 24)                          |
+| JDK         | **21** (Android Studio's bundled JBR works) |
 | Android SDK | compileSdk 35, minSdk 29, buildTools 34.0.0 |
-| Xcode | 15+ (macOS only, for iOS) |
-| Gradle | 8.13 (via wrapper) |
+| Xcode       | 15+ (macOS only, for iOS)                   |
+| Gradle      | 8.13 (via wrapper)                          |
 
 > ⚠️ **JDK 21 is required.** Gradle 8.13 / React Native 0.79 do not support JDK 25. If your `JAVA_HOME` points at a newer JDK, override it:
 >
@@ -707,6 +707,16 @@ npm start            # Metro only, for an already-installed dev client
 
 This app uses **expo-dev-client**, so it cannot run in Expo Go — a native build is mandatory.
 
+### Offline demo organizations
+
+The APK contains three fictional issuers and three pre-signed Verifiable Credentials. Open **Settings → Offline Demo Organizations** to show a credential QR or add a sample directly to the current wallet. Scan a displayed QR from **Add → Scan QR** on another device. The credential JSON and issuer trust anchors are embedded in the APK; this flow does not need a server, LAN address, registry URL, or internet connection. The APK contains public sample credentials only; issuer signing secrets are not shipped.
+
+The sample credentials use the W3C VC data model and EdDSA Data Integrity proofs. Tampering with a signed field causes verification to fail. All three issuers are fictional and must be presented as demos only.
+
+### Optional online issuer demo
+
+For dynamic issuance and server-side revocation tests, run `npm run demo:issuer`. That separate development server exposes five credential formats and a verification API. Phone testing of that optional server requires the phone and computer to share Wi-Fi and the computer firewall to allow the server port. It is not needed for the APK-only offline demo above.
+
 #### Faster emulator builds
 
 By default both `x86_64` and `arm64-v8a` are compiled. For an x86_64 emulator, restrict the ABI in `android/gradle.properties`:
@@ -739,11 +749,11 @@ npm run coverage     # coverage report
 npm run test:ui      # Maestro E2E
 ```
 
-| Layer | Tool | Location |
-|---|---|---|
-| Unit / component | Jest + `@testing-library/react-native` | `test/` |
-| Node-side logic | `node --test` + tsx | `test-node/` |
-| End-to-end | Maestro | `.maestro/` |
+| Layer            | Tool                                   | Location     |
+| ---------------- | -------------------------------------- | ------------ |
+| Unit / component | Jest + `@testing-library/react-native` | `test/`      |
+| Node-side logic  | `node --test` + tsx                    | `test-node/` |
+| End-to-end       | Maestro                                | `.maestro/`  |
 
 ---
 
@@ -764,3 +774,13 @@ Thrown from `CameraDevicesManager.kt` at startup. `react-native-vision-camera` 4
 ### `expo-system-ui: The current activity is no longer available`
 
 Follow-on noise from the above crash/restart cycle, not an independent defect.
+
+---
+
+## 16. Friend testing (APK)
+
+Install **Learner Credential Wallet 2.2.28** from `releases/NDEAR-2.2.28.apk`. Android may ask you to allow installs from the app used to open the APK.
+
+To record the APK-only demo, open **Settings → Offline Demo Organizations**. Use **Add sample to this wallet** for a one-phone walkthrough, or show a sample QR and scan it from **Add → Scan QR** using a second screen. Complete the credential preview and approve it. The wallet can then reopen and share the stored credential offline. A random QR is not necessarily a credential; use one of the signed sample QRs.
+
+The three demo issuers are fictional teaching keys, not real universities.

@@ -4,8 +4,8 @@
  */
 const env = process.env
 
-const BUILD_NUMBER = parseInt(env.APP_BUILD_NUMBER) || 107
-const VERSION_NUMBER = env.APP_VERSION_NUMBER || '2.2.10'
+const BUILD_NUMBER = parseInt(env.APP_BUILD_NUMBER) || 125
+const VERSION_NUMBER = env.APP_VERSION_NUMBER || '2.2.28'
 
 // Used by the 'Create Public Link' functionality
 // If you have forked the LCW and are creating your own wallet app version,
@@ -166,6 +166,7 @@ export default {
               pickFirst: ['**/libcrypto.so']
             },
             newArchEnabled: false,
+            usesCleartextTraffic: true,
             compileSdkVersion: 35,
             targetSdkVersion: 35,
             minSdkVersion: 29,
